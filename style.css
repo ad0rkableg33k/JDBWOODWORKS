@@ -89,7 +89,7 @@ p { margin: 0; }
 .work-grid.three { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .work-card { min-width: 0; display: flex; flex-direction: column; background: var(--card); border: 1px solid rgba(224, 182, 92, 0.3); color: var(--cream); }
 a.work-card:hover { color: var(--cream); border-color: var(--gold); }
-.work-card .pic { height: 250px; padding: 18px; background: var(--tan); display: flex; align-items: center; justify-content: center; }
+.work-card .pic { height: 250px; padding: 18px; background: #000; display: flex; align-items: center; justify-content: center; }
 .work-grid.three .work-card .pic { height: 260px; }
 .work-card .pic img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .work-card .cap { padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
