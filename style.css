@@ -115,8 +115,9 @@ a.work-card:hover { color: var(--cream); border-color: var(--gold); }
 .about { display: flex; flex-wrap: wrap; gap: 48px; }
 .about-copy { flex: 1 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
 .about-copy p { max-width: 680px; font-size: 18px; line-height: 1.65; color: var(--text); }
-.about-badge { flex: 1 1 300px; min-width: 0; min-height: 360px; border: 10px solid var(--ink); background-color: #8c5f30; background-image: url("images/wood.jpg"); background-size: 1100px auto; background-position: 30% 40%; display: flex; flex-direction: column; justify-content: flex-end; }
-.about-badge .inner { padding: 22px 24px; background: rgba(18, 10, 5, 0.88); display: flex; flex-direction: column; gap: 10px; }
+.about-badge { flex: 1 1 300px; min-width: 0; min-height: 560px; margin: 0; border: 10px solid var(--ink); background: var(--ink); position: relative; overflow: hidden; }
+.about-badge img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; }
+.about-badge .inner { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 24px; background: rgba(18, 10, 5, 0.88); display: flex; flex-direction: column; gap: 10px; }
 .about-badge strong { font-family: var(--display); font-weight: 600; font-size: 26px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
 .about-badge .year { font-family: var(--display); font-size: 16px; letter-spacing: 0.12em; text-transform: uppercase; }
 .about-badge .who { font-size: 16px; line-height: 1.5; color: var(--muted); }
