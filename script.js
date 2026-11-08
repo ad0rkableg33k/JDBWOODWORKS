@@ -43,3 +43,41 @@
     window.location.href = 'mailto:' + TO + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
   });
 })();
+
+/* ===== Square embed helper (JDB Woodworks) ===== */
+(function () {
+  if (window.parent === window) return; // not inside a frame, so do nothing
+
+  function sendHeight() {
+    window.parent.postMessage({
+      type: 'jdb-height',
+      height: Math.ceil(document.body.scrollHeight),
+      path: location.pathname
+    }, '*');
+  }
+  window.addEventListener('load', sendHeight);
+  window.addEventListener('resize', sendHeight);
+  if (window.ResizeObserver) { new ResizeObserver(sendHeight).observe(document.body); }
+
+  // Menu links that jump down the page: ask Square's page to do the scrolling
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a) return;
+    var href = a.getAttribute('href');
+    if (href && href.length > 1 && href.charAt(0) === '#') {
+      var target = document.getElementById(href.slice(1));
+      if (target) {
+        e.preventDefault();
+        window.parent.postMessage({
+          type: 'jdb-scroll',
+          top: target.getBoundingClientRect().top + window.pageYOffset
+        }, '*');
+      }
+    }
+  });
+
+  // Outside links open in a new tab
+  document.querySelectorAll('a[href^="http"]').forEach(function (a) {
+    if (a.hostname !== location.hostname) { a.target = '_blank'; a.rel = 'noopener'; }
+  });
+})();
