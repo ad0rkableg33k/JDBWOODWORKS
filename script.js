@@ -20,20 +20,21 @@
 })();
 
 // Quote form: posts to the Google Form in the owner's Workspace.
-// Fill in FORM_ID and the four entry IDs below (see the setup steps).
-// Until they are filled in, it falls back to opening the visitor's email app.
+// Wired to the "JDB quote request" Google Form. If the Form changes, update the IDs below.
+// If IDs are blank, it falls back to opening the visitor's email app.
 (function () {
   var form = document.getElementById('quote-form');
   var status = document.getElementById('form-status');
   if (!form) return;
 
   var TO = 'stevenb@jdbwoodworks.com';
-  var FORM_ID = '';            // the long id from .../forms/d/e/<FORM_ID>/viewform
+  var FORM_ID = '1FAIpQLSeSxQg10vwtH-Zlhfd7zMWprQJ75e7njn7mzxXCLXrMtBhYGw';            // the long id from .../forms/d/e/<FORM_ID>/viewform
   var ENTRY = {
-    name:    '',               // e.g. 'entry.123456789'
-    contact: '',
-    type:    '',
-    message: ''
+    name:    'entry.604898754',
+    contact: 'entry.239682535',   // Email
+    phone:   'entry.1195454573',  // Phone (optional)
+    type:    'entry.1740857859',
+    message: 'entry.246425212'
   };
 
   function show(msg) { status.hidden = false; status.textContent = msg; }
@@ -46,15 +47,16 @@
     var name = form.elements.name.value.trim();
     var contact = form.elements.contact.value.trim();
     var type = form.elements.type.value;
+    var phone = form.elements.phone.value.trim();
     var msg = form.elements.message.value.trim();
     if (!name || !contact || !msg) {
-      show('Please fill in your name, how to reach you, and a short description.');
+      show('Please fill in your name, your email, and a short description.');
       return;
     }
 
     if (!configured()) {
       var subject = 'Quote request: ' + type;
-      var body = 'Name: ' + name + '\nContact: ' + contact + '\nNeed: ' + type + '\n\n' + msg;
+      var body = 'Name: ' + name + '\nEmail: ' + contact + '\nPhone: ' + phone + '\nNeed: ' + type + '\n\n' + msg;
       show('Opening your email app. If nothing opens, send your request to ' + TO + '.');
       window.location.href = 'mailto:' + TO + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
       return;
@@ -63,6 +65,7 @@
     var data = new URLSearchParams();
     data.append(ENTRY.name, name);
     data.append(ENTRY.contact, contact);
+    if (phone) data.append(ENTRY.phone, phone);
     data.append(ENTRY.type, type);
     data.append(ENTRY.message, msg);
 

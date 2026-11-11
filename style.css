@@ -198,3 +198,4 @@ a.work-card:hover { color: var(--cream); border-color: var(--gold); }
 .review figcaption{font-family:var(--display);letter-spacing:.04em;color:var(--gold)}
 .review figcaption span{color:inherit;opacity:.6;font-family:var(--body);letter-spacing:0}
 .all-reviews{margin:22px 0 0;text-align:center}
+.quote-form .opt{opacity:.6;font-weight:400}
