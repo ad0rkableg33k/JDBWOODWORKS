@@ -185,3 +185,7 @@ a.work-card:hover { color: var(--cream); border-color: var(--gold); }
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; }
 }
+
+/* Facebook feed */
+.fb-feed{display:flex;justify-content:center;margin-top:20px}
+.fb-feed iframe{width:100%;max-width:500px;height:720px;background:var(--card);border-radius:6px}
