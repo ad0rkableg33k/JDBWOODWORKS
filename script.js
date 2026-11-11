@@ -19,12 +19,28 @@
   });
 })();
 
-// Quote form: opens the visitor's email app with the message filled in.
+// Quote form: posts to the Google Form in the owner's Workspace.
+// Fill in FORM_ID and the four entry IDs below (see the setup steps).
+// Until they are filled in, it falls back to opening the visitor's email app.
 (function () {
   var form = document.getElementById('quote-form');
   var status = document.getElementById('form-status');
   if (!form) return;
-  var TO = 'Jdbwoodworker@gmail.com';
+
+  var TO = 'stevenb@jdbwoodworks.com';
+  var FORM_ID = '';            // the long id from .../forms/d/e/<FORM_ID>/viewform
+  var ENTRY = {
+    name:    '',               // e.g. 'entry.123456789'
+    contact: '',
+    type:    '',
+    message: ''
+  };
+
+  function show(msg) { status.hidden = false; status.textContent = msg; }
+  function configured() {
+    return FORM_ID && ENTRY.name && ENTRY.contact && ENTRY.type && ENTRY.message;
+  }
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var name = form.elements.name.value.trim();
@@ -32,15 +48,37 @@
     var type = form.elements.type.value;
     var msg = form.elements.message.value.trim();
     if (!name || !contact || !msg) {
-      status.hidden = false;
-      status.textContent = 'Please fill in your name, how to reach you, and a short description.';
+      show('Please fill in your name, how to reach you, and a short description.');
       return;
     }
-    var subject = 'Quote request: ' + type;
-    var body = 'Name: ' + name + '\nContact: ' + contact + '\nNeed: ' + type + '\n\n' + msg;
-    status.hidden = false;
-    status.textContent = 'Opening your email app. If nothing opens, send your request to ' + TO + '.';
-    window.location.href = 'mailto:' + TO + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+
+    if (!configured()) {
+      var subject = 'Quote request: ' + type;
+      var body = 'Name: ' + name + '\nContact: ' + contact + '\nNeed: ' + type + '\n\n' + msg;
+      show('Opening your email app. If nothing opens, send your request to ' + TO + '.');
+      window.location.href = 'mailto:' + TO + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+      return;
+    }
+
+    var data = new URLSearchParams();
+    data.append(ENTRY.name, name);
+    data.append(ENTRY.contact, contact);
+    data.append(ENTRY.type, type);
+    data.append(ENTRY.message, msg);
+
+    var btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    show('Sending...');
+    fetch('https://docs.google.com/forms/d/e/' + FORM_ID + '/formResponse', {
+      method: 'POST',
+      mode: 'no-cors',   // Google sends no CORS headers; the response is opaque
+      body: data
+    }).then(function () {
+      form.reset();
+      show('Thanks. Your request was sent and we will get back to you soon.');
+    }).catch(function () {
+      show('Something went wrong. Please email ' + TO + ' or call (484) 279-8459.');
+    }).then(function () { btn.disabled = false; });
   });
 })();
 
