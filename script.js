@@ -31,15 +31,14 @@
   var FORM_ID = '1FAIpQLSeSxQg10vwtH-Zlhfd7zMWprQJ75e7njn7mzxXCLXrMtBhYGw';            // the long id from .../forms/d/e/<FORM_ID>/viewform
   var ENTRY = {
     name:    'entry.604898754',
-    contact: 'entry.239682535',   // Email
-    phone:   'entry.1195454573',  // Phone (optional)
+    phone:   'entry.239682535',   // Phone
     type:    'entry.1740857859',
     message: 'entry.246425212'
   };
 
   function show(msg) { status.hidden = false; status.textContent = msg; }
   function configured() {
-    return FORM_ID && ENTRY.name && ENTRY.contact && ENTRY.type && ENTRY.message;
+    return FORM_ID && ENTRY.name && ENTRY.phone && ENTRY.type && ENTRY.message;
   }
 
   form.addEventListener('submit', function (e) {
@@ -49,8 +48,8 @@
     var type = form.elements.type.value;
     var phone = form.elements.phone.value.trim();
     var msg = form.elements.message.value.trim();
-    if (!name || !contact || !msg) {
-      show('Please fill in your name, your email, and a short description.');
+    if (!name || !phone || !msg) {
+      show('Please fill in your name, your phone number, and a short description.');
       return;
     }
 
@@ -64,10 +63,9 @@
 
     var data = new URLSearchParams();
     data.append(ENTRY.name, name);
-    data.append(ENTRY.contact, contact);
-    if (phone) data.append(ENTRY.phone, phone);
+    data.append(ENTRY.phone, phone);
     data.append(ENTRY.type, type);
-    data.append(ENTRY.message, msg);
+    data.append(ENTRY.message, contact ? msg + '\n\nEmail: ' + contact : msg);
 
     var btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
