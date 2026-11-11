@@ -1,0 +1,21 @@
+/* Store page. Builds on style.css tokens. */
+.store-main { padding-top: 40px; padding-bottom: 70px; }
+.store-title { font-size: 56px; margin: 4px 0 12px; }
+.store-main .lede { max-width: 640px; color: var(--muted); margin-bottom: 28px; }
+.store-note { padding: 14px 18px; margin-bottom: 22px; border: 1px solid var(--gold); background: rgba(224, 182, 92, 0.14); }
+.store-note.ok { border-color: #9fd49a; background: rgba(159, 212, 154, 0.12); }
+.store-note.err { border-color: #c9785f; background: rgba(201, 120, 95, 0.14); }
+
+.products { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 22px; }
+.product { background: var(--band); border: 1px solid rgba(214, 187, 146, 0.35); display: flex; flex-direction: column; }
+.product .pic { aspect-ratio: 4 / 3; background: #120a05; overflow: hidden; }
+.product .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.product .body { padding: 18px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.product h3 { font-size: 22px; letter-spacing: 0.05em; }
+.product .price { font-family: var(--display); font-size: 26px; color: var(--gold); }
+.product .desc { color: var(--muted); font-size: 16px; flex: 1; }
+.product .stock { font-size: 14px; color: var(--faint); }
+.product .stock.few { color: #f0a08a; }
+.product .pay { margin-top: 10px; min-height: 48px; }
+.product.sold .pic img { filter: grayscale(0.8) brightness(0.7); }
+.product .soldout { font-family: var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: #f0a08a; }
