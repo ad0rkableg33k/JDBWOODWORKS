@@ -1,5 +1,7 @@
 // JDB Woodworks shop dashboard. Vanilla JS, no dependencies.
-// Data lives in this browser's localStorage only. It is never sent anywhere.
+// Two modes, same code:
+//  - On the website (plain file): data lives in this browser's localStorage only.
+//  - Served by Google Apps Script (apps-script/): data lives in a Google Sheet, synced per record.
 (function () {
   'use strict';
 
@@ -12,8 +14,12 @@
   var OPEN = { quote: 1, accepted: 1, progress: 1, ready: 1 };
   var OWED = { accepted: 1, progress: 1, ready: 1 };
 
+  var SERVER = !!(window.google && google.script && google.script.run);
+  var COLLECTIONS = ['inventory', 'orders', 'expenses', 'sales'];
   var storageOK = true;
-  var state = load();
+  var synced = null, busy = false, version = 0;
+  var state = SERVER ? blank() : load();
+  if (SERVER) document.documentElement.classList.add('server');
 
   // ---------- helpers ----------
   function $(s, el) { return (el || document).querySelector(s); }
@@ -56,15 +62,69 @@
     var b = blank();
     if (!d || typeof d !== 'object') return b;
     ['inventory', 'orders', 'expenses', 'sales'].forEach(function (k) {
-      b[k] = Array.isArray(d[k]) ? d[k].filter(function (x) { return x && typeof x === 'object'; }) : [];
+      b[k] = Array.isArray(d[k]) ? d[k].filter(function (x) { return x && typeof x === 'object'; }).map(function (x) {
+        if (!x.id) x.id = uid();
+        return x;
+      }) : [];
     });
     if (d.meta && typeof d.meta.lastBackup === 'string') b.meta.lastBackup = d.meta.lastBackup;
     return b;
   }
   function save() {
+    version++;
+    if (SERVER) { pushChanges(); return; }
     try { localStorage.setItem(KEY, JSON.stringify(state)); }
     catch (e) { storageOK = false; }
     renderAll();
+  }
+
+  // ---------- Google Sheet sync (Apps Script mode only) ----------
+  function clone(x) { return JSON.parse(JSON.stringify(x)); }
+  function canon(r) { var o = {}; Object.keys(r).sort().forEach(function (k) { o[k] = r[k]; }); return JSON.stringify(o); }
+  function errText(err) { return err && err.message ? err.message : 'unknown error'; }
+  function setNote(msg) { var el = $('#sync-note'); el.hidden = !msg; $('#sync-note-text').textContent = msg || ''; }
+  function busyUI(on, text) { busy = on; $('#busy').hidden = !on; $('#busy-text').textContent = text || 'Saving…'; }
+  // What changed since the last copy we got from the Sheet: whole records to upsert, ids to remove.
+  function diff() {
+    var ops = { upsert: {}, remove: {} }, n = 0;
+    COLLECTIONS.forEach(function (c) {
+      var old = {}, seen = {};
+      (synced ? synced[c] : []).forEach(function (r) { old[r.id] = canon(r); });
+      ops.upsert[c] = []; ops.remove[c] = [];
+      state[c].forEach(function (r) {
+        seen[r.id] = 1;
+        if (old[r.id] !== canon(r)) { ops.upsert[c].push(r); n++; }
+      });
+      Object.keys(old).forEach(function (id) { if (!seen[id]) { ops.remove[c].push(id); n++; } });
+    });
+    return n ? ops : null;
+  }
+  function pushChanges() {
+    var ops = diff();
+    if (!ops) { renderAll(); return; }
+    busyUI(true, 'Saving…');
+    google.script.run.withSuccessHandler(adopt).withFailureHandler(function (err) {
+      busyUI(false);
+      setNote('Could not save: ' + errText(err) + '. Showing what is in the Sheet now.');
+      refresh(true);
+    }).sync(ops);
+  }
+  function adopt(res) {
+    state = normalize(res.state);
+    synced = clone(state);
+    busyUI(false);
+    setNote('');
+    renderAll();
+  }
+  function refresh(force) {
+    if (!SERVER || busy) return;
+    var v = version;
+    google.script.run.withSuccessHandler(function (res) {
+      if (!force && (v !== version || document.querySelector('dialog[open]'))) return; // don't clobber an edit in progress
+      adopt(res);
+    }).withFailureHandler(function (err) {
+      setNote('Could not reach the Sheet: ' + errText(err));
+    }).bootstrap();
   }
 
   // ---------- money math ----------
@@ -104,7 +164,7 @@
       if (b.dataset.tab === name) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
     });
-    if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
+    try { if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name); } catch (e) {}
   }
   $('#tabs').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-tab]');
@@ -222,10 +282,10 @@
     if (ed) orderDialog(find(state.orders, ed.dataset.editOrder));
     if (dl) {
       var o = find(state.orders, dl.dataset.delOrder);
-      if (o && confirm('Delete the order for ' + o.name + '? This cannot be undone.')) {
+      if (o) ask('Delete the order for ' + o.name + '? This cannot be undone.', 'Delete', function () {
         state.orders = state.orders.filter(function (x) { return x.id !== o.id; });
         save();
-      }
+      });
     }
   });
 
@@ -286,7 +346,7 @@
       var cost = num(form.elements.materials.value) + num(form.elements.otherCosts.value);
       $('#calc').innerHTML = 'Profit so far: ' + signed(paid - cost) + ' &nbsp;·&nbsp; Balance on estimate: <strong>' + money(Math.max(0, est - paid)) + '</strong>';
     }
-    form.addEventListener('input', calc);
+    form.oninput = calc; // assignment (not addEventListener) so old dialogs' handlers don't pile up
     calc();
   }
 
@@ -319,16 +379,16 @@
     if (t.dataset.inc) { i.qty = num(i.qty) + 1; save(); }
     else if (t.dataset.dec) { i.qty = Math.max(0, num(i.qty) - 1); save(); }
     else if (t.dataset.sell) {
-      if (num(i.qty) < 1) { alert(i.name + ' is out of stock.'); return; }
+      if (num(i.qty) < 1) { tell(i.name + ' is out of stock.'); return; }
       i.qty = num(i.qty) - 1;
       state.sales.push({ id: uid(), date: today(), itemId: i.id, itemName: i.name, price: num(i.price), cost: num(i.cost) });
       save();
     }
     else if (t.dataset.editItem) itemDialog(i);
-    else if (t.dataset.delItem && confirm('Delete ' + i.name + ' from inventory? Past sales stay in your totals.')) {
+    else if (t.dataset.delItem) ask('Delete ' + i.name + ' from inventory? Past sales stay in your totals.', 'Delete', function () {
       state.inventory = state.inventory.filter(function (x) { return x.id !== i.id; });
       save();
-    }
+    });
   });
   function itemDialog(i) {
     var isNew = !i;
@@ -374,7 +434,7 @@
     if (ed) expDialog(find(state.expenses, ed.dataset.editExp));
     if (dl) {
       var x = find(state.expenses, dl.dataset.delExp);
-      if (x && confirm('Delete this expense?')) { state.expenses = state.expenses.filter(function (y) { return y.id !== x.id; }); save(); }
+      if (x) ask('Delete this expense?', 'Delete', function () { state.expenses = state.expenses.filter(function (y) { return y.id !== x.id; }); save(); });
     }
   });
   function expDialog(x) {
@@ -394,8 +454,20 @@
   }
 
   // ---------- dialog ----------
-  var dlg = $('#dlg'), onSave = null;
-  function openDialog(title, html, handler) {
+  var dlg = $('#dlg'), onSave = null, askCb = null;
+  function ask(msg, yes, cb) {
+    $('#ask-msg').textContent = msg;
+    $('#ask-yes').textContent = yes || 'OK';
+    $('#ask-no').hidden = !cb;
+    askCb = cb || null;
+    $('#ask').showModal();
+  }
+  function tell(msg) { ask(msg, 'OK', null); }
+  $('#ask-yes').addEventListener('click', function () { var cb = askCb; askCb = null; $('#ask').close(); if (cb) cb(); });
+  $('#ask-no').addEventListener('click', function () { askCb = null; $('#ask').close(); });
+  function openDialog(title, html, handler, label) {
+    $('#dlg-form').oninput = null;
+    $('#dlg-save').textContent = label || 'Save';
     $('#dlg-title').textContent = title;
     $('#dlg-body').innerHTML = html;
     $('#dlg-err').hidden = true;
@@ -418,8 +490,22 @@
     var items = state.inventory.filter(function (i) { return i.listed; }).map(function (i) {
       return { id: i.id, name: i.name, price: num(i.price), qty: num(i.qty), description: i.desc || '', image: i.image || '' };
     });
-    if (!items.length) { alert('Nothing is set to “List in store” yet. Edit an item and turn it on.'); return; }
-    download('products.json', JSON.stringify({ updated: today(), products: items }, null, 2), 'application/json');
+    if (!items.length) { tell('Nothing is set to “List in store” yet. Edit an item and turn it on.'); return; }
+    var text = JSON.stringify({ updated: today(), products: items }, null, 2);
+    if (!SERVER) { download('products.json', text, 'application/json'); return; }
+    openDialog('Store file (products.json)',
+      '<p class="hint">Copy this into <strong>products.json</strong> in the GitHub repo (replace the whole file) and commit. The store updates in a minute or two.</p>' +
+      '<textarea id="store-out" rows="12" readonly spellcheck="false"></textarea>' +
+      '<div class="btn-row"><button type="button" class="btn-line" id="copy-out">Copy to clipboard</button></div>',
+      function () { return null; }, 'Close');
+    $('#store-out').value = text;
+    $('#copy-out').addEventListener('click', function () {
+      var ta = $('#store-out');
+      ta.focus(); ta.select();
+      var done = function () { $('#copy-out').textContent = 'Copied'; };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { try { document.execCommand('copy'); done(); } catch (e) {} });
+      else { try { document.execCommand('copy'); done(); } catch (e) {} }
+    });
   });
 
   // ---------- backup ----------
@@ -460,17 +546,19 @@
         var data = JSON.parse(rd.result);
         if (!data || typeof data !== 'object' || !['inventory', 'orders', 'expenses', 'sales'].some(function (k) { return Array.isArray(data[k]); })) throw new Error('shape');
         var n = normalize(data);
-        if (!confirm('Replace everything on this page with this backup (' + n.orders.length + ' orders, ' + n.inventory.length + ' items, ' + n.expenses.length + ' expenses)?')) return;
-        state = n;
-        save();
+        ask('Replace everything with this backup (' + n.orders.length + ' orders, ' + n.inventory.length + ' items, ' + n.expenses.length + ' expenses)?', 'Replace', function () {
+          state = n;
+          save();
+        });
       } catch (err) {
-        alert('That file is not a valid dashboard backup.');
+        tell('That file is not a valid dashboard backup.');
       }
     };
     rd.readAsText(file);
   });
 
   function renderBackup() {
+    if (SERVER) { $('#backup-banner').hidden = true; return; }
     var has = state.orders.length + state.inventory.length + state.expenses.length + state.sales.length > 0;
     var lb = state.meta.lastBackup;
     $('#last-backup').textContent = lb ? 'Last backup: ' + niceDate(lb) : 'No backup downloaded yet.';
@@ -490,4 +578,13 @@
   window.addEventListener('hashchange', function () { showTab(location.hash.slice(1)); });
   renderAll();
   showTab(location.hash.slice(1));
+  if (SERVER) {
+    busyUI(true, 'Loading from the Sheet…');
+    google.script.run.withSuccessHandler(adopt).withFailureHandler(function (err) {
+      busyUI(false);
+      setNote('Could not load the Sheet: ' + errText(err));
+    }).bootstrap();
+    setInterval(function () { refresh(false); }, 60000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(false); });
+  }
 })();

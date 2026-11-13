@@ -104,3 +104,16 @@ dialog h3 { font-size: 24px; }
 .f input, .f select { width: 100%; }
 .calc { background: var(--band); border: 1px dashed var(--tan); padding: 10px 14px; margin-bottom: 14px; font-size: 16px; }
 .form-status { color: #f0a08a; margin: 4px 0 0; }
+
+/* Apps Script / Google Sheet mode */
+.server-only { display: none; }
+.server .server-only { display: block; }
+.server .local-only { display: none !important; }
+.busy { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(10, 5, 2, 0.55); }
+.busy[hidden] { display: none; }
+.busy > div { background: #20130a; border: 2px solid var(--gold); padding: 16px 28px; font-family: var(--display); letter-spacing: 0.12em; text-transform: uppercase; }
+#ask p { font-size: 18px; margin: 0 0 6px; }
+#store-out { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+
+/* .banner/.stat etc. set display, which would otherwise beat the hidden attribute */
+.dash [hidden] { display: none !important; }

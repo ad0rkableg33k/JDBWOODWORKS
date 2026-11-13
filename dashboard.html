@@ -32,6 +32,10 @@
 
 <main class="wrap dash-main">
 
+  <div id="sync-note" class="banner" role="status" hidden>
+    <span id="sync-note-text"></span>
+  </div>
+
   <div id="backup-banner" class="banner" hidden>
     <span id="backup-banner-text"></span>
     <button type="button" class="btn-line sm" data-go="backup">Back up now</button>
@@ -137,20 +141,31 @@
   <section id="tab-backup" class="tab" hidden>
     <div class="tab-head"><h2>Backup &amp; restore</h2></div>
     <div class="panel wide">
-      <p>Everything on this page is saved in <strong>this browser, on this device</strong>. It never goes to the website or GitHub, so customer info stays private. The catch: clearing browser data or switching devices wipes it. Download a backup now and then.</p>
+      <p class="local-only">Everything on this page is saved in <strong>this browser, on this device</strong>. It never goes to the website or GitHub, so customer info stays private. The catch: clearing browser data or switching devices wipes it. Download a backup now and then.</p>
+      <p class="server-only">Everything here is saved in the shop's <strong>Google Sheet</strong>, so it is the same on every device. Google keeps the version history (File → Version history in the Sheet). To move data in from the old browser-only dashboard, download a backup there and restore it here.</p>
       <div class="btn-row">
-        <button type="button" class="btn" id="export-json">Download backup (.json)</button>
+        <button type="button" class="btn local-only" id="export-json">Download backup (.json)</button>
         <button type="button" class="btn-line" id="export-csv">Orders to spreadsheet (.csv)</button>
         <label class="btn-line file">Restore from backup
           <input type="file" id="import-json" accept="application/json,.json" hidden>
         </label>
       </div>
-      <p class="hint" id="last-backup"></p>
+      <p class="hint local-only" id="last-backup"></p>
       <p class="hint">Restoring replaces everything currently on this page.</p>
     </div>
   </section>
 
 </main>
+
+<div id="busy" class="busy" role="status" aria-live="polite" hidden><div id="busy-text">Saving…</div></div>
+
+<dialog id="ask">
+  <p id="ask-msg"></p>
+  <div class="btn-row end">
+    <button type="button" class="btn-line" id="ask-no">Cancel</button>
+    <button type="button" class="btn" id="ask-yes">OK</button>
+  </div>
+</dialog>
 
 <!-- Shared edit dialog -->
 <dialog id="dlg">
