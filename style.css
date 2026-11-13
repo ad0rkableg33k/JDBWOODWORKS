@@ -199,3 +199,10 @@ a.work-card:hover { color: var(--cream); border-color: var(--gold); }
 .review figcaption span{color:inherit;opacity:.6;font-family:var(--body);letter-spacing:0}
 .all-reviews{margin:22px 0 0;text-align:center}
 .quote-form .opt{opacity:.6;font-weight:400}
+
+/* Holiday promo (remove after the season) */
+.holiday { background: var(--band); border-top: 3px solid var(--gold); border-bottom: 3px solid var(--gold); }
+.holiday-grid { display: flex; flex-wrap: wrap; align-items: center; gap: 28px 48px; padding-top: 44px; padding-bottom: 44px; }
+.holiday-pic { flex: 1 1 360px; max-width: 520px; display: block; border: 10px solid var(--ink); background: #a9773f; }
+.holiday-pic img { display: block; width: 100%; height: auto; }
+.holiday-copy { flex: 1 1 340px; display: grid; gap: 16px; align-content: center; }
