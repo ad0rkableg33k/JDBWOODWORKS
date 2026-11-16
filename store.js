@@ -28,6 +28,24 @@
     })
     .catch(function () { say('The shop could not load right now. Please try again in a bit.', 'err'); });
 
+  // First paragraph shows on the card; the rest folds under "More details".
+  // Blank line = new paragraph. Lines starting with "* " or "- " become bullets.
+  function blocks(text) {
+    return String(text || '').split(/\n\s*\n/).map(function (para) {
+      var lines = para.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+      if (!lines.length) return '';
+      var bullets = lines.filter(function (l) { return /^[*-]\s+/.test(l); });
+      if (bullets.length === lines.length) return '<ul>' + lines.map(function (l) { return '<li>' + esc(l.replace(/^[*-]\s+/, '')) + '</li>'; }).join('') + '</ul>';
+      return '<p>' + lines.map(function (l) { return esc(l); }).join('<br>') + '</p>';
+    }).filter(Boolean);
+  }
+  function describe(text) {
+    var b = blocks(text);
+    if (!b.length) return '<div class="desc"></div>';
+    var more = b.slice(1).join('');
+    return '<div class="desc">' + b[0] + (more ? '<details><summary>More details</summary>' + more + '</details>' : '') + '</div>';
+  }
+
   function render(list) {
     grid.innerHTML = list.map(function (p, idx) {
       var out = !(p.qty > 0);
@@ -35,7 +53,7 @@
       return '<article class="product' + (out ? ' sold' : '') + '">' + img +
         '<div class="body"><h3>' + esc(p.name) + '</h3>' +
         '<div class="price">' + fmt.format(p.price) + '</div>' +
-        (p.description ? '<p class="desc">' + esc(p.description) + '</p>' : '<p class="desc"></p>') +
+        describe(p.description) +
         (out ? '<div class="soldout">Sold out</div>'
              : '<div class="stock' + (p.qty <= 2 ? ' few' : '') + '">' + (p.qty <= 2 ? 'Only ' + p.qty + ' left' : 'In stock') + '</div>') +
         (out ? '' : '<div class="pay" id="pay-' + idx + '"></div>') +

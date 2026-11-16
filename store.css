@@ -19,3 +19,8 @@
 .product .pay { margin-top: 10px; min-height: 48px; }
 .product.sold .pic img { filter: grayscale(0.8) brightness(0.7); }
 .product .soldout { font-family: var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: #f0a08a; }
+
+.product .desc p { margin: 0 0 10px; }
+.product .desc ul { margin: 0 0 10px; padding-left: 20px; }
+.product .desc li { margin: 2px 0; }
+.product .desc summary { cursor: pointer; color: var(--gold); font-family: var(--display); font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; margin: 4px 0 10px; }
