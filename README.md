@@ -24,6 +24,7 @@ Nothing here needs a server we run ourselves.
 
  Owner ─────> Dashboard (Google Apps Script web app, Workspace login)
                  └─ reads/writes the "JDB Shop Data" Google Sheet
+                 └─ new quote-form responses arrive here as Quotes (form-submit trigger)
                  └─ "Publish to store" gives text to paste into products.json
 ```
 
@@ -53,6 +54,12 @@ Things that will silently break it:
 - The dropdown options in the form must match the site's options exactly.
 - If the form's questions are rebuilt, the `entry.` IDs change and `script.js` must be updated
   (get them from the form's "Get pre-filled link").
+
+Each response is also copied into the dashboard's Orders as a **Quote** (see
+[`apps-script/SETUP.md`](apps-script/SETUP.md)): the form is linked to the *JDB Shop Data*
+Sheet and a form-submit trigger runs `onFormSubmit` in `apps-script/Code.gs`. It matches the
+form's questions by keywords in their titles (name, phone, need/type, describe/project/message),
+so reworded questions still work; anything it doesn't recognise goes into the order's notes.
 
 The site always shows "sent" after submitting, even if Google rejected it (the browser can't
 see Google's reply). After changing the form, **submit a test and check the Responses tab.**
