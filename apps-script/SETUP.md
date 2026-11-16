@@ -39,6 +39,21 @@ jdbwoodworks.com accounts on the allowlist can open. Takes about 10 minutes.
   tabs is fine.
 - **Publish to store** (Inventory tab) shows a `products.json` to copy into the repo.
 
+## Website quote requests into Orders
+
+New answers to the website's quote form (the Google Form "orders") appear in the dashboard as
+**New request** orders (the Orders tab shows how many), with name, phone, email and request filled in.
+
+1. In the form: Responses tab > **Link to Sheets** > **Select existing spreadsheet** >
+   `JDB Shop Data`. A "Form Responses 1" tab appears in the Sheet. Leave it alone.
+2. In the script editor, pick `installFormTrigger` and **Run** (Allow the extra permission).
+3. Pick `importExistingResponses` and **Run** to bring in anything submitted before step 2.
+   Safe to run again: it never duplicates, and never overwrites an order you've edited.
+
+No new deployment is needed for this, since triggers run the saved code.
+The form's own email notifications (form Responses tab, three dots, "Get email notifications")
+still work and are worth keeping on.
+
 ## Moving data from the old browser-only dashboard
 
 On the old page: Backup > Download backup. On the new one: Backup > Restore from backup.

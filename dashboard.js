@@ -8,11 +8,20 @@
   var KEY = 'jdb-dashboard-v1';
   var BACKUP_NAG_DAYS = 14;
   var STATUS = {
-    quote: 'Quote', accepted: 'Accepted', progress: 'In progress',
+    new: 'New request', quote: 'Quote sent', accepted: 'Accepted', progress: 'In progress',
     ready: 'Ready', done: 'Complete', cancelled: 'Cancelled'
   };
-  var OPEN = { quote: 1, accepted: 1, progress: 1, ready: 1 };
+  var OPEN = { new: 1, quote: 1, accepted: 1, progress: 1, ready: 1 };
   var OWED = { accepted: 1, progress: 1, ready: 1 };
+  // Orders-list filters: new = needs a price, quote = price sent and waiting, shop = work we've agreed to
+  var FILTERS = {
+    new: function (o) { return o.status === 'new'; },
+    quote: function (o) { return o.status === 'quote'; },
+    shop: function (o) { return !!OWED[o.status]; },
+    active: function (o) { return !!OPEN[o.status]; },
+    finished: function (o) { return o.status === 'done' || o.status === 'cancelled'; },
+    all: function () { return true; }
+  };
 
   var SERVER = !!(window.google && google.script && google.script.run);
   var COLLECTIONS = ['inventory', 'orders', 'expenses', 'sales'];
@@ -180,9 +189,10 @@
     var r = $('#range').value;
     var t = totals(rangeStart(r), '9999-99-99');
 
-    var owed = 0, open = 0;
+    var owed = 0, open = 0, fresh = 0;
     state.orders.forEach(function (o) {
       if (OPEN[o.status]) open++;
+      if (o.status === 'new') fresh++;
       if (OWED[o.status]) owed += Math.max(0, num(o.estPrice) - num(o.paid));
     });
     var units = 0, retail = 0;
@@ -193,7 +203,7 @@
       stat('Costs', money(t.costs), 'materials, expenses, stock sold') +
       stat('Profit', signed(t.profit), t.revenue ? Math.round((t.profit / t.revenue) * 100) + '% margin' : 'no revenue yet') +
       stat('Still owed', money(owed), 'on accepted / in-progress / ready orders') +
-      stat('Open orders', String(open), 'quotes and active jobs') +
+      stat('Open orders', String(open), fresh ? fresh + ' new, waiting on a quote' : 'requests, quotes and active jobs') +
       stat('Stock on hand', String(units) + ' unit' + (units === 1 ? '' : 's'), money(retail) + ' at retail');
 
     renderChart();
@@ -226,9 +236,10 @@
   }
 
   function renderAttention() {
-    var items = [], t = today();
+    var items = [], fresh = [], t = today();
     state.orders.forEach(function (o) {
       if (!OPEN[o.status]) return;
+      if (o.status === 'new') { fresh.push({ warn: 1, text: esc(o.name) + ': new request, needs a quote', sub: 'Received ' + niceDate(o.created) }); return; }
       if (o.due && o.due < t) items.push({ warn: 1, text: esc(o.name) + ': past due', sub: 'Was due ' + niceDate(o.due) + ' (' + STATUS[o.status] + ')' });
       else if (o.status === 'ready') {
         var bal = num(o.estPrice) - num(o.paid);
@@ -238,6 +249,7 @@
     state.inventory.forEach(function (i) {
       if (num(i.qty) <= num(i.low)) items.push({ warn: 1, text: esc(i.name) + ': ' + (num(i.qty) === 0 ? 'out of stock' : 'low stock'), sub: num(i.qty) + ' left' });
     });
+    items = fresh.concat(items);
     $('#attention').innerHTML = items.length
       ? '<ul>' + items.map(function (x) { return '<li class="' + (x.warn ? 'warn' : '') + '">' + x.text + '<small>' + esc(x.sub) + '</small></li>'; }).join('') + '</ul>'
       : '<p class="hint">All clear. Suspicious, but all clear.</p>';
@@ -247,12 +259,16 @@
   function renderOrders() {
     var q = $('#order-search').value.trim().toLowerCase();
     var f = $('#order-filter').value;
+    $$('#order-filter option').forEach(function (op) {
+      var fn = FILTERS[op.value];
+      op.textContent = op.dataset.label + (fn && op.value !== 'all' ? ' (' + state.orders.filter(fn).length + ')' : '');
+    });
     var rows = state.orders.filter(function (o) {
-      if (f === 'active' && !OPEN[o.status]) return false;
+      if (!(FILTERS[f] || FILTERS.active)(o)) return false;
       if (!q) return true;
       return [o.name, o.phone, o.email, o.address, o.request, o.wood].join(' ').toLowerCase().indexOf(q) >= 0;
     }).sort(function (a, b) {
-      return (a.due || '9999').localeCompare(b.due || '9999') || (b.created || '').localeCompare(a.created || '');
+      return ((b.status === 'new') - (a.status === 'new')) || (a.due || '9999').localeCompare(b.due || '9999') || (b.created || '').localeCompare(a.created || '');
     });
     $('#orders-empty').hidden = rows.length > 0;
     $('#orders-empty').textContent = state.orders.length ? 'No orders match.' : 'No orders yet. Hit “New order” to add the first one.';
@@ -305,7 +321,7 @@
 
   function orderDialog(o) {
     var isNew = !o;
-    o = o || { status: 'quote', created: today() };
+    o = o || { status: 'new', created: today() };
     openDialog(isNew ? 'New order' : 'Edit order',
       '<div class="grid2">' + field('Customer name *', 'name', o.name || '', 'type="text" required autocomplete="off"') +
       field('Phone', 'phone', o.phone || '', 'type="tel" autocomplete="off"') + '</div>' +
@@ -571,7 +587,12 @@
   }
 
   // ---------- init ----------
+  function renderBadge() {
+    var n = state.orders.filter(FILTERS.new).length;
+    $('#tabs [data-tab="orders"]').innerHTML = 'Orders' + (n ? ' <span class="badge" aria-label="' + n + ' new">' + n + '</span>' : '');
+  }
   function renderAll() {
+    renderBadge();
     renderOverview(); renderOrders(); renderInventory(); renderExpenses(); renderBackup();
   }
   $('#range').addEventListener('change', renderOverview);

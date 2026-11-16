@@ -8,9 +8,10 @@
  * script property get in (fail closed if it is empty). See SETUP.md.
  */
 
-var STATUSES = ['quote', 'accepted', 'progress', 'ready', 'done', 'cancelled'];
+var STATUSES = ['new', 'quote', 'accepted', 'progress', 'ready', 'done', 'cancelled'];
 
 // Column types: s=text, d=date (yyyy-mm-dd text), m=money, i=whole number, b=yes/no, e=status
+// Statuses: new (needs a quote) > quote (quote sent) > accepted > progress > ready > done / cancelled
 var TABS = {
   orders: { sheet: 'Orders', cols: [
     ['id', 's'], ['created', 'd'], ['name', 's'], ['phone', 's'], ['email', 's'], ['address', 's'],
@@ -66,6 +67,93 @@ function sync(ops) {
 /** Run once from the editor (Run > setup) to create the tabs and grant permissions. */
 function setup() {
   withLock_(function () { ensureSheets_(); });
+}
+
+/* ---------- website quote form -> Orders ----------
+ * The Google Form "orders" is linked to this spreadsheet (a "Form Responses" tab appears).
+ * A form-submit trigger runs onFormSubmit, which adds each response as a New request in Orders.
+ * Insert-only: an order that already exists is never overwritten, so edits in the dashboard are safe.
+ */
+
+/** Run once from the editor: makes new form responses show up in Orders. */
+function installFormTrigger() {
+  var has = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'onFormSubmit'; });
+  if (has) return 'already installed';
+  ScriptApp.newTrigger('onFormSubmit').forSpreadsheet(SpreadsheetApp.getActive()).onFormSubmit().create();
+  return 'installed';
+}
+
+/** Run once from the editor: brings in responses that arrived before the trigger existed. */
+function importExistingResponses() {
+  var sh = SpreadsheetApp.getActive().getSheets().filter(function (x) { return /^Form Responses/.test(x.getName()); })[0];
+  if (!sh) throw new Error('No "Form Responses" tab found. Link the form to this spreadsheet first.');
+  var data = sh.getDataRange().getValues();
+  var head = data[0].map(String);
+  var recs = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (row.every(function (c) { return c === '' || c == null; })) continue;
+    var pairs = head.map(function (h, j) { return [h, cellText_(row[j])]; });
+    recs.push(formPairsToOrder_(pairs, sh.getSheetId(), i + 1));
+  }
+  return addFormOrders_(recs);
+}
+
+function onFormSubmit(e) {
+  if (!e || !e.namedValues) return;
+  var pairs = Object.keys(e.namedValues).map(function (k) {
+    var v = e.namedValues[k];
+    return [k, cellText_(Array.isArray(v) ? v[0] : v)];
+  });
+  var sh = e.range && e.range.getSheet ? e.range.getSheet() : null;
+  addFormOrders_([formPairsToOrder_(pairs, sh ? sh.getSheetId() : 0, e.range ? e.range.getRow() : 0)]);
+}
+
+function cellText_(v) {
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  }
+  return v == null ? '' : String(v);
+}
+
+/** Turns [[question, answer], ...] into an order record. Matches questions by keywords in their titles. */
+function formPairsToOrder_(pairs, sheetId, row) {
+  var name = '', phone = '', email = '', type = '', msg = '', ts = '', rest = [];
+  pairs.forEach(function (p) {
+    var k = String(p[0]).toLowerCase(), v = String(p[1]).trim();
+    if (!v) return;
+    if (k === 'timestamp') ts = v;
+    else if (!email && /e-?mail/.test(k)) email = v;
+    else if (!name && /name/.test(k)) name = v;
+    else if (!phone && /phone|mobile|cell/.test(k)) phone = v;
+    else if (!type && /need|type|kind|service/.test(k)) type = v;
+    else if (!msg && /describe|project|message|details|request|about/.test(k)) msg = v;
+    else rest.push(p[0] + ': ' + v);
+  });
+  // The website appends "Email: x" to the message when the visitor gave one.
+  var m = msg.match(/\s*Email:\s*(\S+@\S+)\s*$/i);
+  if (m) { if (!email) email = m[1]; msg = msg.slice(0, m.index).trim(); }
+  if (!msg && rest.length) { msg = rest.join('\n'); rest = []; }
+  return {
+    id: 'form-' + sheetId + '-' + row,
+    created: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'),
+    name: name || 'Website visitor',
+    phone: phone, email: email,
+    request: (type ? type + ': ' : '') + msg,
+    status: 'new',
+    notes: 'From the website form' + (ts ? ' (' + ts + ')' : '') + (rest.length ? '\n' + rest.join('\n') : '')
+  };
+}
+
+function addFormOrders_(recs) {
+  return withLock_(function () {
+    ensureSheets_();
+    var have = {};
+    readTab_('orders').forEach(function (r) { have[r.id] = true; });
+    var fresh = recs.filter(function (r) { return !have[r.id]; });
+    if (fresh.length) applyOps_({ upsert: { orders: fresh }, remove: {} });
+    return fresh.length;
+  });
 }
 
 /* ---------- access ---------- */
