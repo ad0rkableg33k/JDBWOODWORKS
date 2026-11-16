@@ -55,7 +55,7 @@ Things that will silently break it:
 - If the form's questions are rebuilt, the `entry.` IDs change and `script.js` must be updated
   (get them from the form's "Get pre-filled link").
 
-Each response is also copied into the dashboard's Orders as a **Quote** (see
+Each response is also copied into the dashboard's Orders as a **New request** (see
 [`apps-script/SETUP.md`](apps-script/SETUP.md)): the form is linked to the *JDB Shop Data*
 Sheet and a form-submit trigger runs `onFormSubmit` in `apps-script/Code.gs`. It matches the
 form's questions by keywords in their titles (name, phone, need/type, describe/project/message),
@@ -139,8 +139,11 @@ doesn't sync. The Google Sheet version is the real one.
 
 ## Day to day (for the owner)
 
-- **New customer request:** add it under Orders as a *Quote*. Update the status as it moves:
-  Quote, Accepted, In progress, Ready, Complete.
+- **New customer request:** website form requests arrive by themselves as **New request**
+  (the Orders tab shows a count, and the list puts them first). Phone or walk-in requests: add
+  them with **+ New order**. Move each one along as it progresses:
+  New request (needs a price), Quote sent (waiting on them), Accepted, In progress, Ready, Complete.
+  The Orders filter shows each stage with a count, e.g. "Needs a quote (2)".
 - **Customer pays:** open the order, fill in **Actual paid** (and materials cost), save.
 - **Sold a ready-made item:** Inventory, **Sold 1**. Then re-publish the store file if it's a listed item.
 - **Bought tools or supplies:** Expenses, **New expense**.

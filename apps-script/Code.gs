@@ -8,9 +8,10 @@
  * script property get in (fail closed if it is empty). See SETUP.md.
  */
 
-var STATUSES = ['quote', 'accepted', 'progress', 'ready', 'done', 'cancelled'];
+var STATUSES = ['new', 'quote', 'accepted', 'progress', 'ready', 'done', 'cancelled'];
 
 // Column types: s=text, d=date (yyyy-mm-dd text), m=money, i=whole number, b=yes/no, e=status
+// Statuses: new (needs a quote) > quote (quote sent) > accepted > progress > ready > done / cancelled
 var TABS = {
   orders: { sheet: 'Orders', cols: [
     ['id', 's'], ['created', 'd'], ['name', 's'], ['phone', 's'], ['email', 's'], ['address', 's'],
@@ -70,7 +71,7 @@ function setup() {
 
 /* ---------- website quote form -> Orders ----------
  * The Google Form "orders" is linked to this spreadsheet (a "Form Responses" tab appears).
- * A form-submit trigger runs onFormSubmit, which adds each response as a new Quote in Orders.
+ * A form-submit trigger runs onFormSubmit, which adds each response as a New request in Orders.
  * Insert-only: an order that already exists is never overwritten, so edits in the dashboard are safe.
  */
 
@@ -139,7 +140,7 @@ function formPairsToOrder_(pairs, sheetId, row) {
     name: name || 'Website visitor',
     phone: phone, email: email,
     request: (type ? type + ': ' : '') + msg,
-    status: 'quote',
+    status: 'new',
     notes: 'From the website form' + (ts ? ' (' + ts + ')' : '') + (rest.length ? '\n' + rest.join('\n') : '')
   };
 }

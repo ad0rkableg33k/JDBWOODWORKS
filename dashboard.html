@@ -76,8 +76,12 @@
       <div class="tools">
         <input id="order-search" type="search" placeholder="Search name, phone, request…" aria-label="Search orders">
         <select id="order-filter" aria-label="Filter by status">
-          <option value="active">Open orders</option>
-          <option value="all">All orders</option>
+          <option value="active" data-label="All open">All open</option>
+          <option value="new" data-label="Needs a quote">Needs a quote</option>
+          <option value="quote" data-label="Quote sent, waiting">Quote sent, waiting</option>
+          <option value="shop" data-label="In the shop">In the shop</option>
+          <option value="finished" data-label="Complete / cancelled">Complete / cancelled</option>
+          <option value="all" data-label="Everything">Everything</option>
         </select>
         <button type="button" class="btn sm" id="new-order">+ New order</button>
       </div>
