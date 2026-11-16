@@ -31,13 +31,21 @@
   // First paragraph shows on the card; the rest folds under "More details".
   // Blank line = new paragraph. Lines starting with "* " or "- " become bullets.
   function blocks(text) {
-    return String(text || '').split(/\n\s*\n/).map(function (para) {
-      var lines = para.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
-      if (!lines.length) return '';
-      var bullets = lines.filter(function (l) { return /^[*-]\s+/.test(l); });
-      if (bullets.length === lines.length) return '<ul>' + lines.map(function (l) { return '<li>' + esc(l.replace(/^[*-]\s+/, '')) + '</li>'; }).join('') + '</ul>';
-      return '<p>' + lines.map(function (l) { return esc(l); }).join('<br>') + '</p>';
-    }).filter(Boolean);
+    var out = [];
+    String(text || '').split(/\n\s*\n/).forEach(function (para) {
+      var lines = para.split('\n').map(function (l) { return l.trim(); }).filter(Boolean), txt = [], bul = [];
+      function flush() {
+        if (txt.length) out.push('<p>' + txt.map(esc).join('<br>') + '</p>');
+        if (bul.length) out.push('<ul>' + bul.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>');
+        txt = []; bul = [];
+      }
+      lines.forEach(function (l) {
+        if (/^[*-]\s+/.test(l)) bul.push(l.replace(/^[*-]\s+/, ''));
+        else { if (bul.length) flush(); txt.push(l); }
+      });
+      flush();
+    });
+    return out;
   }
   function describe(text) {
     var b = blocks(text);
