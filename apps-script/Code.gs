@@ -64,6 +64,23 @@ function sync(ops) {
   });
 }
 
+/** Saves an item photo to Drive and returns a public image link. */
+function uploadPhoto(name, dataUrl) {
+  assertAllowed_();
+  var m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+\/=]+)$/.exec(String(dataUrl || ''));
+  if (!m) throw new Error('That is not a supported picture (use JPG, PNG or WebP).');
+  var bytes = Utilities.base64Decode(m[2]);
+  if (bytes.length > 3 * 1024 * 1024) throw new Error('That picture is too big.');
+  var ext = m[1] === 'image/png' ? '.png' : m[1] === 'image/webp' ? '.webp' : '.jpg';
+  var base = String(name || 'photo').replace(/\.[^.]*$/, '').replace(/[^A-Za-z0-9 _-]/g, '').slice(0, 60) || 'photo';
+  var it = DriveApp.getFoldersByName('JDB Shop Photos');
+  var folder = it.hasNext() ? it.next() : DriveApp.createFolder('JDB Shop Photos');
+  var file = folder.createFile(Utilities.newBlob(bytes, m[1], base + '-' + Date.now() + ext));
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); }
+  catch (e) { throw new Error('Drive would not make the photo viewable. Link sharing may be turned off for the workspace.'); }
+  return 'https://lh3.googleusercontent.com/d/' + file.getId();
+}
+
 /** Run once from the editor (Run > setup) to create the tabs and grant permissions. */
 function setup() {
   withLock_(function () { ensureSheets_(); });

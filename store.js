@@ -31,7 +31,7 @@
   function render(list) {
     grid.innerHTML = list.map(function (p, idx) {
       var out = !(p.qty > 0);
-      var img = p.image ? '<div class="pic"><img src="images/' + encodeURIComponent(p.image) + '" alt="' + esc(p.name) + '" loading="lazy"></div>' : '';
+      var img = p.image ? '<div class="pic"><img src="' + (/^https:\/\/lh3\.googleusercontent\.com\//.test(p.image) ? esc(p.image) : 'images/' + encodeURIComponent(p.image)) + '" alt="' + esc(p.name) + '" loading="lazy"></div>' : '';
       return '<article class="product' + (out ? ' sold' : '') + '">' + img +
         '<div class="body"><h3>' + esc(p.name) + '</h3>' +
         '<div class="price">' + fmt.format(p.price) + '</div>' +

@@ -199,8 +199,11 @@ a.work-card:hover { color: var(--cream); border-color: var(--gold); }
 }
 
 /* Facebook feed */
-.fb-feed{display:flex;justify-content:center;margin-top:20px}
-.fb-feed iframe{width:100%;max-width:500px;height:720px;background:var(--card);border-radius:6px}
+.fb-card{display:flex;flex-wrap:wrap;align-items:center;gap:20px 28px;margin-top:20px;max-width:760px;background:var(--card);border:1px solid rgba(224,182,92,.25);border-radius:6px;padding:24px}
+.fb-card img{border-radius:6px;border:2px solid var(--gold);flex:none}
+.fb-card > div{flex:1 1 260px;display:grid;gap:10px;justify-items:start}
+.fb-card h3{margin:0;font-size:1.5rem}
+.fb-card p{margin:0}
 
 /* Reviews */
 .reviews{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;margin-top:20px}
@@ -342,6 +345,11 @@ dialog h3 { font-size: 24px; }
 
 #tabs .badge { display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 4px; border-radius: 10px; background: var(--gold); color: #1b0f06; font-size: 13px; line-height: 20px; text-align: center; letter-spacing: 0; }
 
+.dash h3.sub { margin-top: 30px; }
+.photo-prev { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+.photo-prev:empty { display: none; }
+.photo-prev img { width: 110px; height: 110px; object-fit: cover; border: 1px solid var(--tan); }
+
 </style>
 </head>
 <body class="dash">
@@ -453,6 +461,16 @@ dialog h3 { font-size: 24px; }
       </table>
     </div>
     <p class="empty" id="inv-empty" hidden>Nothing in stock yet. Add the first item.</p>
+    <div id="sales-box" hidden>
+      <h3 class="sub">Recent sales</h3>
+      <p class="hint">Hit “Sold 1” by mistake? Undo it here. The item goes back in stock and the sale comes off revenue.</p>
+      <div class="table-wrap">
+        <table id="sales-table">
+          <thead><tr><th>Date</th><th>Item</th><th class="num">Price</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
   </section>
 
   <!-- EXPENSES -->
@@ -890,6 +908,7 @@ dialog h3 { font-size: 24px; }
     var rows = state.inventory.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
     $('#inv-empty').hidden = rows.length > 0;
     $('#inv-table').hidden = rows.length === 0;
+    renderSales();
     $('#inv-table tbody').innerHTML = rows.map(function (i) {
       var low = num(i.qty) <= num(i.low);
       var margin = num(i.price) - num(i.cost);
@@ -904,6 +923,26 @@ dialog h3 { font-size: 24px; }
         '<button type="button" class="danger" data-del-item="' + esc(i.id) + '">Delete</button></div></td></tr>';
     }).join('');
   }
+  function renderSales() {
+    var recent = state.sales.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 10);
+    $('#sales-box').hidden = recent.length === 0;
+    $('#sales-table tbody').innerHTML = recent.map(function (x) {
+      return '<tr><td>' + esc(x.date) + '</td><td>' + esc(x.itemName) + '</td><td class="num">' + money(num(x.price)) + '</td>' +
+        '<td><div class="row-actions"><button type="button" data-undo-sale="' + esc(x.id) + '">Undo</button></div></td></tr>';
+    }).join('');
+  }
+  $('#sales-table').addEventListener('click', function (e) {
+    var t = e.target.closest('button[data-undo-sale]');
+    if (!t) return;
+    var sale = find(state.sales, t.dataset.undoSale);
+    if (!sale) return;
+    ask('Undo this sale of ' + sale.itemName + '? It comes off your revenue and the item goes back in stock.', 'Undo sale', function () {
+      var item = find(state.inventory, sale.itemId);
+      if (item) item.qty = num(item.qty) + 1;
+      state.sales = state.sales.filter(function (x) { return x.id !== sale.id; });
+      save();
+    });
+  });
   $('#new-item').addEventListener('click', function () { itemDialog(null); });
   $('#inv-table').addEventListener('click', function (e) {
     var t = e.target.closest('button');
@@ -925,6 +964,54 @@ dialog h3 { font-size: 24px; }
       save();
     });
   });
+  function photoField(cur) {
+    if (!SERVER) return field('Photo file name', 'image', cur, 'type="text" placeholder="maple-bottle-opener.png" autocomplete="off"');
+    return '<div class="f"><span>Photo</span>' +
+      '<input type="hidden" name="image" value="' + esc(cur) + '">' +
+      '<div id="photo-prev" class="photo-prev"></div>' +
+      '<input type="file" id="photo-file" accept="image/*">' +
+      '<small id="photo-msg" class="hint"></small></div>';
+  }
+  function showPhoto() {
+    var inp = $('#dlg-body input[name="image"]'), box = $('#photo-prev');
+    if (!inp || !box) return;
+    box.innerHTML = /^https:\/\//.test(inp.value) ? '<img alt="Item photo" src=\'' + esc(inp.value) + '\'><button type="button" class="btn-line sm" id="photo-clear">Remove photo</button>' : '';
+    var c = $('#photo-clear');
+    if (c) c.onclick = function () { inp.value = ''; showPhoto(); };
+  }
+  function wirePhoto() {
+    var f = $('#photo-file');
+    if (!f) return;
+    showPhoto();
+    f.onchange = function () {
+      var file = f.files && f.files[0], msg = $('#photo-msg');
+      if (!file) return;
+      msg.textContent = 'Uploading…';
+      shrink(file, function (err, dataUrl) {
+        if (err) { msg.textContent = err; return; }
+        google.script.run.withSuccessHandler(function (url) {
+          $('#dlg-body input[name="image"]').value = url;
+          msg.textContent = 'Photo added. Hit Save to keep it.';
+          f.value = '';
+          showPhoto();
+        }).withFailureHandler(function (e) { msg.textContent = 'Upload failed: ' + errText(e); }).uploadPhoto(file.name, dataUrl);
+      });
+    };
+  }
+  // Resize in the browser so phone photos (several MB) upload fast.
+  function shrink(file, cb) {
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onerror = function () { URL.revokeObjectURL(url); cb('That file is not a picture I can read.'); };
+    img.onload = function () {
+      var max = 1000, k = Math.min(1, max / Math.max(img.width, img.height));
+      var c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      cb(null, c.toDataURL('image/jpeg', 0.82));
+    };
+    img.src = url;
+  }
   function itemDialog(i) {
     var isNew = !i;
     i = i || { qty: 1, low: 1 };
@@ -934,7 +1021,7 @@ dialog h3 { font-size: 24px; }
       field('Low-stock warning at', 'low', i.low, 'type="number" step="1" min="0" inputmode="numeric"') + '</div>' +
       '<div class="grid2">' + money_f('Sale price', 'price', i.price) + money_f('Cost to make', 'cost', i.cost) + '</div>' +
       '<label class="f"><span>Store description</span><textarea name="desc" rows="2" placeholder="Shown on the public store page">' + esc(i.desc || '') + '</textarea></label>' +
-      '<div class="grid2">' + field('Photo file name', 'image', i.image || '', 'type="text" placeholder="maple-bottle-opener.png" autocomplete="off"') +
+      '<div class="grid2">' + photoField(i.image || '') +
       '<label class="f"><span>Online store</span><select name="listed"><option value="no"' + (i.listed ? '' : ' selected') + '>Not listed</option><option value="yes"' + (i.listed ? ' selected' : '') + '>List in store</option></select></label></div>',
       function (fd) {
         var name = fd.get('name').trim();
@@ -944,12 +1031,13 @@ dialog h3 { font-size: 24px; }
         rec.qty = Math.max(0, Math.round(num(fd.get('qty'))));
         rec.low = Math.max(0, Math.round(num(fd.get('low'))));
         rec.price = num(fd.get('price')); rec.cost = num(fd.get('cost'));
-        rec.desc = fd.get('desc').trim(); rec.image = fd.get('image').trim().replace(/^.*[\\/]/, '');
+        rec.desc = fd.get('desc').trim(); rec.image = fd.get('image').trim(); if (!/^https:\/\//.test(rec.image)) rec.image = rec.image.replace(/^.*[\\/]/, '');
         rec.listed = fd.get('listed') === 'yes';
         if (rec.listed && !(rec.price > 0)) return 'A listed item needs a sale price.';
         if (!i.id) state.inventory.push(rec);
         return null;
       });
+    wirePhoto();
   }
 
   // ---------- expenses ----------

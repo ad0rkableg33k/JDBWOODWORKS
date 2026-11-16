@@ -120,3 +120,8 @@ dialog h3 { font-size: 24px; }
 .dash [hidden] { display: none !important; }
 
 #tabs .badge { display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 4px; border-radius: 10px; background: var(--gold); color: #1b0f06; font-size: 13px; line-height: 20px; text-align: center; letter-spacing: 0; }
+
+.dash h3.sub { margin-top: 30px; }
+.photo-prev { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+.photo-prev:empty { display: none; }
+.photo-prev img { width: 110px; height: 110px; object-fit: cover; border: 1px solid var(--tan); }
