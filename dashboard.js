@@ -371,6 +371,7 @@
     var rows = state.inventory.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
     $('#inv-empty').hidden = rows.length > 0;
     $('#inv-table').hidden = rows.length === 0;
+    renderSales();
     $('#inv-table tbody').innerHTML = rows.map(function (i) {
       var low = num(i.qty) <= num(i.low);
       var margin = num(i.price) - num(i.cost);
@@ -385,6 +386,26 @@
         '<button type="button" class="danger" data-del-item="' + esc(i.id) + '">Delete</button></div></td></tr>';
     }).join('');
   }
+  function renderSales() {
+    var recent = state.sales.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 10);
+    $('#sales-box').hidden = recent.length === 0;
+    $('#sales-table tbody').innerHTML = recent.map(function (x) {
+      return '<tr><td>' + esc(x.date) + '</td><td>' + esc(x.itemName) + '</td><td class="num">' + money(num(x.price)) + '</td>' +
+        '<td><div class="row-actions"><button type="button" data-undo-sale="' + esc(x.id) + '">Undo</button></div></td></tr>';
+    }).join('');
+  }
+  $('#sales-table').addEventListener('click', function (e) {
+    var t = e.target.closest('button[data-undo-sale]');
+    if (!t) return;
+    var sale = find(state.sales, t.dataset.undoSale);
+    if (!sale) return;
+    ask('Undo this sale of ' + sale.itemName + '? It comes off your revenue and the item goes back in stock.', 'Undo sale', function () {
+      var item = find(state.inventory, sale.itemId);
+      if (item) item.qty = num(item.qty) + 1;
+      state.sales = state.sales.filter(function (x) { return x.id !== sale.id; });
+      save();
+    });
+  });
   $('#new-item').addEventListener('click', function () { itemDialog(null); });
   $('#inv-table').addEventListener('click', function (e) {
     var t = e.target.closest('button');
@@ -406,6 +427,54 @@
       save();
     });
   });
+  function photoField(cur) {
+    if (!SERVER) return field('Photo file name', 'image', cur, 'type="text" placeholder="maple-bottle-opener.png" autocomplete="off"');
+    return '<div class="f"><span>Photo</span>' +
+      '<input type="hidden" name="image" value="' + esc(cur) + '">' +
+      '<div id="photo-prev" class="photo-prev"></div>' +
+      '<input type="file" id="photo-file" accept="image/*">' +
+      '<small id="photo-msg" class="hint"></small></div>';
+  }
+  function showPhoto() {
+    var inp = $('#dlg-body input[name="image"]'), box = $('#photo-prev');
+    if (!inp || !box) return;
+    box.innerHTML = /^https:\/\//.test(inp.value) ? '<img alt="Item photo" src=\'' + esc(inp.value) + '\'><button type="button" class="btn-line sm" id="photo-clear">Remove photo</button>' : '';
+    var c = $('#photo-clear');
+    if (c) c.onclick = function () { inp.value = ''; showPhoto(); };
+  }
+  function wirePhoto() {
+    var f = $('#photo-file');
+    if (!f) return;
+    showPhoto();
+    f.onchange = function () {
+      var file = f.files && f.files[0], msg = $('#photo-msg');
+      if (!file) return;
+      msg.textContent = 'Uploading…';
+      shrink(file, function (err, dataUrl) {
+        if (err) { msg.textContent = err; return; }
+        google.script.run.withSuccessHandler(function (url) {
+          $('#dlg-body input[name="image"]').value = url;
+          msg.textContent = 'Photo added. Hit Save to keep it.';
+          f.value = '';
+          showPhoto();
+        }).withFailureHandler(function (e) { msg.textContent = 'Upload failed: ' + errText(e); }).uploadPhoto(file.name, dataUrl);
+      });
+    };
+  }
+  // Resize in the browser so phone photos (several MB) upload fast.
+  function shrink(file, cb) {
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onerror = function () { URL.revokeObjectURL(url); cb('That file is not a picture I can read.'); };
+    img.onload = function () {
+      var max = 1000, k = Math.min(1, max / Math.max(img.width, img.height));
+      var c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      cb(null, c.toDataURL('image/jpeg', 0.82));
+    };
+    img.src = url;
+  }
   function itemDialog(i) {
     var isNew = !i;
     i = i || { qty: 1, low: 1 };
@@ -415,7 +484,7 @@
       field('Low-stock warning at', 'low', i.low, 'type="number" step="1" min="0" inputmode="numeric"') + '</div>' +
       '<div class="grid2">' + money_f('Sale price', 'price', i.price) + money_f('Cost to make', 'cost', i.cost) + '</div>' +
       '<label class="f"><span>Store description</span><textarea name="desc" rows="2" placeholder="Shown on the public store page">' + esc(i.desc || '') + '</textarea></label>' +
-      '<div class="grid2">' + field('Photo file name', 'image', i.image || '', 'type="text" placeholder="maple-bottle-opener.png" autocomplete="off"') +
+      '<div class="grid2">' + photoField(i.image || '') +
       '<label class="f"><span>Online store</span><select name="listed"><option value="no"' + (i.listed ? '' : ' selected') + '>Not listed</option><option value="yes"' + (i.listed ? ' selected' : '') + '>List in store</option></select></label></div>',
       function (fd) {
         var name = fd.get('name').trim();
@@ -425,12 +494,13 @@
         rec.qty = Math.max(0, Math.round(num(fd.get('qty'))));
         rec.low = Math.max(0, Math.round(num(fd.get('low'))));
         rec.price = num(fd.get('price')); rec.cost = num(fd.get('cost'));
-        rec.desc = fd.get('desc').trim(); rec.image = fd.get('image').trim().replace(/^.*[\\/]/, '');
+        rec.desc = fd.get('desc').trim(); rec.image = fd.get('image').trim(); if (!/^https:\/\//.test(rec.image)) rec.image = rec.image.replace(/^.*[\\/]/, '');
         rec.listed = fd.get('listed') === 'yes';
         if (rec.listed && !(rec.price > 0)) return 'A listed item needs a sale price.';
         if (!i.id) state.inventory.push(rec);
         return null;
       });
+    wirePhoto();
   }
 
   // ---------- expenses ----------

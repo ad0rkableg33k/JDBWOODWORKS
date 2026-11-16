@@ -115,7 +115,8 @@ public site. The code is in `apps-script/`; full setup steps are in
 ### Publishing store stock
 
 1. In the dashboard: Inventory, edit an item, set it to **List in store** (needs a price; add a
-   description and a photo file name that exists in `images/`).
+   description and a photo. In the Google version, pick a photo file and it uploads to a Drive
+   folder called *JDB Shop Photos* and is linked automatically).
 2. Click **Publish to store** and copy the text it shows.
 3. In this repo, replace the contents of `products.json` with it and commit.
 
@@ -146,6 +147,7 @@ doesn't sync. The Google Sheet version is the real one.
   The Orders filter shows each stage with a count, e.g. "Needs a quote (2)".
 - **Customer pays:** open the order, fill in **Actual paid** (and materials cost), save.
 - **Sold a ready-made item:** Inventory, **Sold 1**. Then re-publish the store file if it's a listed item.
+- **Hit Sold 1 by mistake:** Inventory, scroll to **Recent sales**, **Undo**. Stock goes back up and the sale leaves revenue.
 - **Bought tools or supplies:** Expenses, **New expense**.
 - **Forms:** check the quote form's Responses tab for new requests.
 
